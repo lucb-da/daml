@@ -257,9 +257,14 @@ object WebSocketService {
             .toLeftDisjunction(x.ekey.templateId)
         }
 
-      val q: Map[domain.TemplateId.RequiredPkg, LfV] = resolvedWithKey.toMap
+      val q: Map[domain.TemplateId.RequiredPkg, Seq[LfV]] =
+        resolvedWithKey.foldLeft(Map[domain.TemplateId.RequiredPkg, Seq[LfV]]())((acc, el) =>
+          acc.get(el._1) match {
+            case Some(v) => acc.updated(el._1, v ++ Seq(el._2))
+            case None => acc.updated(el._1, Seq(el._2))
+        })
       val fn: domain.ActiveContract[LfV] => Option[Positive] = { a =>
-        if (q.get(a.templateId).exists(k => domain.ActiveContract.matchesKey(k)(a)))
+        if (q.getOrElse(a.templateId, Seq()).exists(k => domain.ActiveContract.matchesKey(k)(a)))
           Some(())
         else None
       }
