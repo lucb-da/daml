@@ -9,14 +9,13 @@ import scala.annotation.tailrec
 
 object TypeOrdering extends Ordering[Ast.Type] {
 
-  private def zipAndPush[X, Y](
-      xs: Iterator[X],
-      ys: Iterator[Y],
-      stack: FrontStack[(X, Y)],
-  ): FrontStack[(X, Y)] =
-    (xs zip ys).to[ImmArray] ++: stack
+  @throws[IllegalArgumentException]
+  // throws an exception if x or y is not comparable,
+  // i.e. it contains variables, quantifier, or synonym.
+  def compare(x: Ast.Type, y: Ast.Type): Int =
+    compareType(0, FrontStack((x, y)))
 
-  val builtinTypeIdx =
+  private[this] val builtinTypeRank =
     List(
       Ast.BTUnit,
       Ast.BTBool,
@@ -38,7 +37,7 @@ object TypeOrdering extends Ordering[Ast.Type] {
       Ast.BTScenario
     ).zipWithIndex.toMap
 
-  private def typeRank(typ: Ast.Type): Int =
+  private[this] def typeRank(typ: Ast.Type): Int =
     typ match {
       case Ast.TBuiltin(_) => 0
       case Ast.TTyCon(_) => 1
@@ -51,39 +50,33 @@ object TypeOrdering extends Ordering[Ast.Type] {
 
   @tailrec
   // Any two ground types (types without variable nor quantifiers) can be compared.
-  private[this] def compareType(x: Int, stack0: FrontStack[(Ast.Type, Ast.Type)]): Int =
-    stack0 match {
-      case FrontStack() =>
-        x
-      case FrontStackCons(tuple, stack) =>
-        if (x != 0) x
-        else
+  private[this] def compareType(diff: Int, stack0: FrontStack[(Ast.Type, Ast.Type)]): Int =
+    if (diff != 0) diff
+    else
+      stack0 match {
+        case FrontStackCons(tuple, stack) =>
           tuple match {
-            case (Ast.TBuiltin(b1), Ast.TBuiltin(b2)) =>
-              compareType(builtinTypeIdx(b1) compareTo builtinTypeIdx(b2), stack)
-            case (Ast.TTyCon(con1), Ast.TTyCon(con2)) =>
-              compareType(con1 compare con2, stack)
-            case (Ast.TNat(n1), Ast.TNat(n2)) =>
-              compareType(n1 compareTo n2, stack)
-            case (Ast.TStruct(fields1), Ast.TStruct(fields2)) =>
+            case (Ast.TBuiltin(x), Ast.TBuiltin(y)) =>
+              compareType(builtinTypeRank(x) compareTo builtinTypeRank(y), stack)
+            case (Ast.TTyCon(x), Ast.TTyCon(y)) =>
+              compareType(x compare y, stack)
+            case (Ast.TNat(x), Ast.TNat(y)) =>
+              compareType(x compareTo y, stack)
+            case (Ast.TStruct(xs), Ast.TStruct(ys)) =>
               compareType(
-                math.Ordering
+                Ordering
                   .Iterable[String]
-                  .compare(fields1.toSeq.map(_._1), fields2.toSeq.map(_._1)),
-                zipAndPush(fields1.iterator.map(_._2), fields2.iterator.map(_._2), stack)
+                  .compare(xs.iterator.map(_._1).toSeq, ys.iterator.map(_._1).toSeq),
+                (xs.iterator.map(_._2) zip ys.iterator.map(_._2)).to[ImmArray] ++: stack
               )
-            case (Ast.TApp(t11, t12), Ast.TApp(t21, t22)) =>
-              compareType(0, (t11, t21) +: (t12, t22) +: stack)
-            case (t1, t2) =>
-              // This case only occurs when t1 and t2 have different ranks.
-              val x = typeRank(t1) compareTo typeRank(t2)
-              assert(x != 0)
-              x
+            case (Ast.TApp(x1, x2), Ast.TApp(y1, y2)) =>
+              compareType(0, (x1, y1) +: (x2, y2) +: stack)
+            case (x, y) =>
+              // This only occurs when x and y have different ranks or are not comparable
+              typeRank(x) compareTo typeRank(y)
           }
-    }
-
-  // undefined if `typ1` or `typ2` contains `TVar`, `TForAll`, or `TSynApp`.
-  def compare(typ1: Ast.Type, typ2: Ast.Type): Int =
-    compareType(0, FrontStack((typ1, typ2)))
+        case FrontStack() =>
+          diff
+      }
 
 }
