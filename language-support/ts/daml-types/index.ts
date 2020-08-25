@@ -86,7 +86,7 @@ export const registerTemplate = <T extends object>(template: Template<T>): void 
 export const lookupTemplate = (templateId: string): Template<object> => {
   const template = registeredTemplates[templateId];
   if (template === undefined) {
-    throw Error(`Trying to look up template ${templateId}.`);
+    console.debug (`Trying to look up template ${templateId}. Known templates: ${registeredTemplates}`);
   }
   return template;
 }
