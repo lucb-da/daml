@@ -4,6 +4,8 @@
 
 module IDRef where
 
+import Daml.Script
+
 -- ID_REF_TEST_BEGIN
 data Bank = Bank with
   party : Party
@@ -33,10 +35,10 @@ template CashBalance
   where
     signatory accountant
 
-id_ref_test = scenario do
-  accountant <- getParty "Bob"
-  owner <- getParty "Alice"
-  bank_party <- getParty "Bank"
+id_ref_test = do
+  accountant <- allocateParty "Bob"
+  owner <- allocateParty "Alice"
+  bank_party <- allocateParty "Bank"
   let
     bank = Bank with
       party = bank_party
@@ -47,30 +49,50 @@ id_ref_test = scenario do
       amount = 100.0
 
   accountCid <- submit accountant do
-     create Account with
+     createCmd Account with
       accountant
       owner
       bank
       number = "ABC123"
 
   balanceCid <- submit accountant do
-    create CashBalance with
+    createCmd CashBalance with
       accountant
       cash
       account = accountCid
 
   -- Now the accountant updates the telephone number for the bank on the account
   new_account <- submit accountant do
-    account <- fetch accountCid
-    archive accountCid
-    create account with
-      bank = account.bank with
-        telephone = "098 7654 321"
+    createAndExerciseCmd (Helper accountant) (UpdatePhoneNumber accountCid "098 7654 321")
 
   -- The `account` field on the balance now refers to the archived
   -- contract, so this will fail.
   submitMustFail accountant do
-    balance <- fetch balanceCid
-    fetch balance.account
+    createAndExerciseCmd (Helper accountant) (FetchBalanceAccount balanceCid)
+
+
+-- Helper template to call `fetch`.
+template Helper
+  with
+    p : Party
+  where
+    signatory p
+    choice UpdatePhoneNumber : ContractId Account
+      with
+        cid : ContractId Account
+        number : Text
+      controller p
+      do account <- fetch cid
+         archive cid
+         create account with
+           bank = account.bank with
+             telephone = number
+
+    choice FetchBalanceAccount : Account
+      with
+        cid : ContractId CashBalance
+      controller p
+      do balance <- fetch cid
+         fetch balance.account
 -- ID_REF_TEST_END
 
