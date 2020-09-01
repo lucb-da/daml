@@ -308,7 +308,7 @@ nonPerformedError = do
 -- NON_PERFORMED_ERROR_END
 -}
 
-test: Script () = do
+test = script do
   optPow 2 5 === Some 32
   optPow 5 2 === Some 25
   errPow 2 5 === 32
