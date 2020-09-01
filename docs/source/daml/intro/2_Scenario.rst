@@ -56,7 +56,7 @@ There are a few ways to run DAML Scripts:
 
 - In DAML Studio against a test ledger, providing visualizations of the resulting ledger
 - Using the command line ``daml test`` also against a test ledger, useful for continuous integration
-- Against a real ledger, take a look at the documentation for :doc:`DAML Script </daml-script/index>` fr more information.
+- Against a real ledger, take a look at the documentation for :doc:`DAML Script </daml-script/index>` for more information.
 - Interactively using :doc:`DAML REPL </daml-repl/index>`.
 
 In DAML Studio, you should see the text "Script results" just above the line ``token_test_1 = do``. Click on it to display the outcome of the script.
