@@ -41,7 +41,7 @@ Before you can create any ``Token`` contracts, you need some parties on the test
   If that doesn't quite make sense yet, for the time being you can think of this arrow as extracting the right-hand-side value from the ledger and storing it into the variable on the left.
 - The argument ``"Alice"`` to ``allocateParty`` does not have to be enclosed in brackets. Functions in DAML are called using the syntax ``fn arg1 arg2 arg3``.
 
-With a variable ``alice`` of type ``Party`` in hand, you can submit your first transaction. Unsurprisingly, you do this using the ``submit`` function. ``submit`` takes two arguments: a ``Party`` and an ``Update``.
+With a variable ``alice`` of type ``Party`` in hand, you can submit your first transaction. Unsurprisingly, you do this using the ``submit`` function. ``submit`` takes two arguments: a ``Party`` and an ``Commands``.
 
 Just like ``Script`` is a recipe for a test, ``Commands`` is a recipe for a transaction. ``createCmd Token with owner = alice`` is a ``Commands``, which translates to a list of commands that will be submitted to the ledger creating a transaction which creates a ``Token`` with owner Alice.
 
