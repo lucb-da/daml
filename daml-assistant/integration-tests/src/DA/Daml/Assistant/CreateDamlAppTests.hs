@@ -75,7 +75,7 @@ tests =
           step "Run JavaScript codegen"
           callCommandSilent $ "daml codegen js -o ui/daml.js .daml/dist/" <> projectName <> "-0.1.0.dar"
           genFiles <- listFilesRecursive "ui/daml.js"
-          forM_ [file | file <- genFiles, takeFileName file == "package.json"] (patchTsDependencies (cdaDir </> "ui"))
+          forM_ [file | file <- genFiles, takeFileName file == "package.json"] (patchTsDependencies uiDir)
         assertFileDoesNotExist (uiDir </> "build" </> "index.html")
         withCurrentDirectory uiDir $ do
           patchTsDependencies uiDir "package.json"
