@@ -7,7 +7,6 @@ import java.util
 
 import com.daml.lf.data._
 import com.daml.lf.data.Ref._
-import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SError.SErrorCrash
 import com.daml.lf.value.{Value => V}
@@ -34,11 +33,8 @@ sealed trait SValue {
       case SUnit => V.ValueUnit
       case SDate(x) => V.ValueDate(x)
       case SStruct(fields, svalues) =>
-        V.ValueStruct(
-          Struct.assertFromSeq(
-            (fields.iterator zip svalues.iterator().asScala.map(_.toValue)).toSeq
-          ),
-        )
+        val valuesIterator = svalues.iterator().asScala.map(_.toValue)
+        V.ValueStruct(fields.mapValues(_ => valuesIterator.next()))
       case SRecord(id, fields, svalues) =>
         V.ValueRecord(
           Some(id),
@@ -143,7 +139,7 @@ object SValue {
       extends SValue
 
   @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
-  final case class SStruct(fields: ImmArray[Name], values: util.ArrayList[SValue]) extends SValue
+  final case class SStruct(fieldNames: Struct[Unit], values: util.ArrayList[SValue]) extends SValue
 
   final case class SVariant(
       id: Identifier,
@@ -234,7 +230,11 @@ object SValue {
     def bool(b: Boolean) = if (b) True else False
   }
 
-  private val entryFields = ImmArray(Ast.keyFieldName, Ast.valueFieldName)
+  private val entryFields = Struct.assertFromSeq(List(keyFieldName -> (()), valueFieldName -> (())))
+
+  // we verify the fields are ordered as the `entry` method expects it.
+  assert(entryFields.indexOf(keyFieldName) == 0)
+  assert(entryFields.indexOf(valueFieldName) == 1)
 
   private def entry(key: SValue, value: SValue) = {
     val args = new util.ArrayList[SValue](2)

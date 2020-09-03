@@ -11,6 +11,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.data.Numeric.Scale
 import com.daml.lf.language.Ast
+import com.daml.lf.language.Ast.{keyFieldName, maintainersFieldName}
 import com.daml.lf.speedy.SError._
 import com.daml.lf.speedy.SExpr._
 import com.daml.lf.speedy.Speedy._
@@ -816,11 +817,14 @@ private[lf] object SBuiltin {
   }
 
   /** $tcon[fields] :: a -> b -> ... -> Struct */
-  final case class SBStructCon(fields: ImmArray[Name])
-      extends SBuiltinPure(fields.length)
+  final case class SBStructCon(inputFieldsOrder: Struct[Int])
+      extends SBuiltinPure(inputFieldsOrder.size)
       with SomeArrayEquals {
+    private[this] val fieldNames = inputFieldsOrder.mapValues(_ => ())
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
-      SStruct(fields, args)
+      val sortedFields = new util.ArrayList[SValue](inputFieldsOrder.size)
+      inputFieldsOrder.values.foreach(i => sortedFields.add(args.get(i)))
+      SStruct(fieldNames, sortedFields)
     }
   }
 
@@ -829,7 +833,7 @@ private[lf] object SBuiltin {
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       args.get(0) match {
         case SStruct(fields, values) =>
-          values.get(fields.indexWhere(_ == field))
+          values.get(fields.indexOf(field))
         case v =>
           crash(s"StructProj on non-struct: $v")
       }
@@ -842,7 +846,7 @@ private[lf] object SBuiltin {
       args.get(0) match {
         case SStruct(fields, values) =>
           val values2 = values.clone.asInstanceOf[util.ArrayList[SValue]]
-          values2.set(fields.indexWhere(_ == field), args.get(1))
+          values2.set(fields.indexOf(field), args.get(1))
           SStruct(fields, values2)
         case v =>
           crash(s"StructUpd on non-struct: $v")
@@ -1637,16 +1641,21 @@ private[lf] object SBuiltin {
         crash(s"value not a list of parties or party: $v")
     }
 
+  private[this] val keyWithMaintainersStructFields: Struct[Unit] =
+    Struct.assertFromSeq(List(keyFieldName -> (()), maintainersFieldName -> (())))
+
+  private[this] val keyIdx = keyWithMaintainersStructFields.indexOf(keyFieldName)
+  private[this] val maintainerIdx = keyWithMaintainersStructFields.indexOf(maintainersFieldName)
+
   private[this] def extractKeyWithMaintainers(
       v: SValue,
   ): Node.KeyWithMaintainers[V[Nothing]] =
     v match {
-      case SStruct(flds, vals)
-          if flds.length == 2 && flds(0) == Ast.keyFieldName && flds(1) == Ast.maintainersFieldName =>
+      case SStruct(flds, vals) if flds.names sameElements keyWithMaintainersStructFields.names =>
         rightOrCrash(
           for {
             keyVal <- vals
-              .get(0)
+              .get(keyIdx)
               .toValue
               .ensureNoCid
               .left
@@ -1654,7 +1663,7 @@ private[lf] object SBuiltin {
           } yield
             Node.KeyWithMaintainers(
               key = keyVal,
-              maintainers = extractParties(vals.get(1))
+              maintainers = extractParties(vals.get(maintainerIdx))
             ))
       case _ => crash(s"Invalid key with maintainers: $v")
     }

@@ -5,7 +5,7 @@ package com.daml.lf
 package speedy
 
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{ImmArray, Numeric, Time}
+import com.daml.lf.data.{ImmArray, Numeric, Struct, Time}
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
@@ -271,6 +271,9 @@ private[lf] final case class Compiler(
     case SCPCons => 2
   }
 
+  private[this] val fetchByKeyResultStruct: Struct[Int] =
+    Struct.assertFromSeq(List(contractIdFieldName, contractFieldName).zipWithIndex)
+
   private def translate(expr0: Expr): SExpr =
     expr0 match {
       case EVar(name) => SEVar(env.lookUpExprVar(name))
@@ -445,8 +448,10 @@ private[lf] final case class Compiler(
       }
 
       case EStructCon(fields) =>
+        val fieldsInputOrder =
+          Struct.assertFromSeq(fields.iterator.map(_._1).zipWithIndex.toIndexedSeq)
         SEApp(
-          SEBuiltin(SBStructCon(fields.map(_._1))),
+          SEBuiltin(SBStructCon(fieldsInputOrder)),
           fields.iterator.map { case (_, e) => translate(e) }.toArray
         )
 
@@ -596,12 +601,6 @@ private[lf] final case class Compiler(
             SEGetTime
 
           case UpdateLookupByKey(retrieveByKey) =>
-            // Translates 'lookupByKey Foo <key>' into:
-            // let keyWithMaintainers = {key: <key>, maintainers: <key maintainers> <key>}
-            // in \token ->
-            //    let mbContractId = $lookupKey keyWithMaintainers
-            //        _ = $insertLookup Foo keyWithMaintainers
-            //    in mbContractId
             compileLookupByKey(retrieveByKey.templateId, translate(retrieveByKey.key))
 
           case UpdateFetchByKey(retrieveByKey) =>
@@ -647,7 +646,7 @@ private[lf] final case class Compiler(
                         SEApp(SEBuiltin(SBSome), Array(SEVar(4))),
                         SEVar(3) // token
                       ),
-                    ) in SBStructCon(ImmArray(contractIdFieldName, contractFieldName))(
+                    ) in SBStructCon(keyWithMaintainersFieldsInputOrder)(
                       SEVar(3), // contract id
                       SEVar(2) // contract
                     )
@@ -858,9 +857,12 @@ private[lf] final case class Compiler(
     }
   }
 
+  private[this] val keyWithMaintainersFieldsInputOrder: Struct[Int] =
+    Struct.assertFromSeq(List(keyFieldName, maintainersFieldName).zipWithIndex)
+
   private def encodeKeyWithMaintainers(key: SExpr, tmplKey: TemplateKey): SExpr =
     SELet(key) in
-      SBStructCon(ImmArray(keyFieldName, maintainersFieldName))(
+      SBStructCon(keyWithMaintainersFieldsInputOrder)(
         SEVar(1), // key
         SEApp(translate(tmplKey.maintainers), Array(SEVar(1) /* key */ )),
       )
