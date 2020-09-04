@@ -816,10 +816,11 @@ private[lf] object SBuiltin {
     }
   }
 
+  // SBStructCon sorts the field after evaluation of its arguments to preserve
+  // evaluation order of unordered fields.
   /** $tcon[fields] :: a -> b -> ... -> Struct */
   final case class SBStructCon(inputFieldsOrder: Struct[Int])
-      extends SBuiltinPure(inputFieldsOrder.size)
-      with SomeArrayEquals {
+      extends SBuiltinPure(inputFieldsOrder.size) {
     private[this] val fieldNames = inputFieldsOrder.mapValues(_ => ())
     override private[speedy] final def executePure(args: util.ArrayList[SValue]): SValue = {
       val sortedFields = new util.ArrayList[SValue](inputFieldsOrder.size)

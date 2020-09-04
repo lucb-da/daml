@@ -139,6 +139,7 @@ object SValue {
       extends SValue
 
   @SuppressWarnings(Array("org.wartremover.warts.ArrayEquals"))
+  // values must be ordered according fieldNames
   final case class SStruct(fieldNames: Struct[Unit], values: util.ArrayList[SValue]) extends SValue
 
   final case class SVariant(
