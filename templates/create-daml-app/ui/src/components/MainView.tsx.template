@@ -74,6 +74,7 @@ const MainView: React.FC = () => {
               {/* USERLIST_BEGIN */}
               <UserList
                 users={followers}
+                notToFollow={(myUser?.following ?? []).concat(myUser ? myUser.username : "")}
                 onFollow={follow}
               />
               {/* USERLIST_END */}
