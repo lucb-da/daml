@@ -45,6 +45,8 @@ import com.daml.ports.Port
 import com.daml.resources.ResettableResourceOwner
 import scalaz.syntax.tag._
 
+import com.daml.metrics.NoOpTelemetryContext
+
 import scala.compat.java8.FutureConverters.CompletionStageOps
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
@@ -268,7 +270,7 @@ class Runner(config: SandboxConfig) extends ResourceOwner[Port] {
     for {
       dar <- Future(
         DarReader { case (_, x) => Try(Archive.parseFrom(x)) }.readArchiveFromFile(from).get)
-      _ <- to.uploadPackages(submissionId, dar.all, None).toScala
+      _ <- to.uploadPackages(submissionId, dar.all, None)(NoOpTelemetryContext).toScala
     } yield ()
   }
 }

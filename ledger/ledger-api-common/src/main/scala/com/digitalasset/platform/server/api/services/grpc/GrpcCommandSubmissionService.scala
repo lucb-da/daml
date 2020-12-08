@@ -23,6 +23,8 @@ import com.google.protobuf.empty.Empty
 import io.grpc.ServerServiceDefinition
 import org.slf4j.{Logger, LoggerFactory}
 
+import com.daml.metrics.DefaultTelemetry
+
 import scala.concurrent.Future
 
 class GrpcCommandSubmissionService(
@@ -51,7 +53,7 @@ class GrpcCommandSubmissionService(
             .validate(request, currentLedgerTime(), currentUtcTime(), maxDeduplicationTime()))
         .fold(
           Future.failed,
-          service.submit(_).map(_ => Empty.defaultInstance)(DirectExecutionContext))
+          service.submit(_)(DefaultTelemetry.contextFromGrpcThreadLocalContext()).map(_ => Empty.defaultInstance)(DirectExecutionContext))
     )
 
   override def bindService(): ServerServiceDefinition =

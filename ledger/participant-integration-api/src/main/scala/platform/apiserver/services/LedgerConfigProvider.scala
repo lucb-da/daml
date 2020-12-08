@@ -24,6 +24,8 @@ import com.daml.lf.data.Time.Timestamp
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
 import com.daml.platform.configuration.LedgerConfiguration
 
+import com.daml.metrics.NoOpTelemetryContext
+
 import scala.compat.java8.FutureConverters
 import scala.concurrent.duration.{DurationInt, DurationLong}
 import scala.concurrent.{Future, Promise}
@@ -143,7 +145,7 @@ private[apiserver] final class LedgerConfigProvider private (
           Timestamp.assertFromInstant(timeProvider.getCurrentTime.plusSeconds(60)),
           submissionId,
           config.initialConfiguration
-        ))
+        )(NoOpTelemetryContext))
       .map {
         case SubmissionResult.Acknowledged =>
           logger.info(s"Initial configuration submission $submissionId was successful")

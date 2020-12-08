@@ -41,6 +41,8 @@ import com.google.protobuf.empty.Empty
 import io.grpc._
 import scalaz.syntax.tag._
 
+import com.daml.metrics.{TelemetryContext, DefaultTelemetry}
+
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future, Promise}
 import scala.util.Try
@@ -81,6 +83,9 @@ private[apiserver] final class ApiCommandService private (
       logging.commandId(request.getCommands.commandId),
       logging.party(request.getCommands.party),
     ) { implicit loggingContext =>
+      implicit val telemetryContext: TelemetryContext = DefaultTelemetry.contextFromGrpcThreadLocalContext()
+      telemetryContext.setAttribute(com.daml.metrics.CommandId, request.getCommands.commandId)
+      telemetryContext.setAttribute(com.daml.metrics.CorrelationId, request.getCommands.commandId)
       if (running) {
         ledgerConfigProvider.latestConfiguration.fold[Future[Completion]](
           Future.failed(ErrorFactories.missingLedgerConfig()))(ledgerConfig =>
