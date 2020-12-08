@@ -61,15 +61,12 @@ private[platform] abstract class BaseLedger(
       endInclusive: Option[Offset],
       filter: Map[Party, Set[Identifier]],
       verbose: Boolean,
-  )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
-//    val span = TracingContextUtils.getCurrentSpan
-//    span.addEvent("hello from flatTransactions")
+  )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] =
     dispatcher.startingAt(
       startExclusive.getOrElse(Offset.beforeBegin),
       RangeSource(ledgerDao.transactionsReader.getFlatTransactions(_, _, filter, verbose)),
       endInclusive
     )
-  }
 
   override def transactionTrees(
       startExclusive: Option[Offset],
