@@ -75,7 +75,7 @@ object SqlLedgerFactory extends LedgerFactory[ReadWriteService, ExtraConfig] {
           metrics = metrics.daml.kvutils.submission.validator.stateValueCache,
         ),
         seedService = SeedService(config.seeding),
-        resetOnStartup = false,
+        resetOnStartup = false
       ).acquire()
         .map(readerWriter => new KeyValueParticipantState(readerWriter, readerWriter, metrics))
     }
