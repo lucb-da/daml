@@ -4,6 +4,7 @@
 package com.daml.platform.store.dao.events
 
 import java.sql.Connection
+import java.util.concurrent.atomic.AtomicInteger
 
 import akka.NotUsed
 import akka.stream.scaladsl.Source
@@ -26,7 +27,6 @@ import com.daml.platform.store.DbType
 import com.daml.platform.store.SimpleSqlAsVectorOf.SimpleSqlAsVectorOf
 import com.daml.platform.store.dao.{DbDispatcher, PaginatingAsyncStream}
 import io.opentelemetry.OpenTelemetry
-import io.opentelemetry.trace.Span
 
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -73,6 +73,7 @@ private[dao] final class TransactionsReader(
       filter: FilterRelation,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[(Offset, GetTransactionsResponse), NotUsed] = {
+    val eventCount = new AtomicInteger(0)
     val txnSpan = tracer
       .spanBuilder("com.daml.platform.store.dao.events.TransactionsReader.getFlatTransactions")
       .setNoParent()
@@ -107,7 +108,7 @@ private[dao] final class TransactionsReader(
             dbMetrics.getFlatTransactions,
             query,
             nextPageRange[Event](requestedRange.endInclusive),
-            txnSpan,
+            eventCount,
           )(requestedRange)
         })
         .mapMaterializedValue(_ => NotUsed)
@@ -123,6 +124,11 @@ private[dao] final class TransactionsReader(
             txn =>
               txnSpan.addEvent(
                 daml.metrics.Event("transaction", TraceIdentifiers.fromTransaction(txn))))
+          if (eventCount.accumulateAndGet(
+              response.transactions.size,
+              (current, argument) => current - argument) == 0) {
+            txnSpan.end()
+          }
           (offset, response)
       }
   }
@@ -155,6 +161,7 @@ private[dao] final class TransactionsReader(
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext)
     : Source[(Offset, GetTransactionTreesResponse), NotUsed] = {
+    val eventCount = new AtomicInteger(0)
     val txnSpan = tracer
       .spanBuilder("com.daml.platform.store.dao.events.TransactionsReader.getTransactionTrees")
       .setNoParent()
@@ -191,7 +198,7 @@ private[dao] final class TransactionsReader(
             dbMetrics.getTransactionTrees,
             query,
             nextPageRange[TreeEvent](requestedRange.endInclusive),
-            txnSpan
+            eventCount
           )(requestedRange)
         })
         .mapMaterializedValue(_ => NotUsed)
@@ -207,6 +214,11 @@ private[dao] final class TransactionsReader(
             txn =>
               txnSpan.addEvent(
                 com.daml.metrics.Event("transaction", TraceIdentifiers.fromTransactionTree(txn))))
+          if (eventCount.accumulateAndGet(
+              response.transactions.size,
+              (current, argument) => current - argument) == 0) {
+            txnSpan.end()
+          }
           (offset, response)
       }
   }
@@ -237,6 +249,7 @@ private[dao] final class TransactionsReader(
       filter: FilterRelation,
       verbose: Boolean,
   )(implicit loggingContext: LoggingContext): Source[GetActiveContractsResponse, NotUsed] = {
+    val eventCount = new AtomicInteger(0)
     val txnSpan = tracer
       .spanBuilder("com.daml.platform.store.dao.events.TransactionsReader.getActiveContracts")
       .setNoParent()
@@ -271,7 +284,7 @@ private[dao] final class TransactionsReader(
             dbMetrics.getActiveContracts,
             query,
             nextPageRange[Event](requestedRange.endInclusive),
-            txnSpan,
+            eventCount,
           )(requestedRange)
         })
         .mapMaterializedValue(_ => NotUsed)
@@ -281,6 +294,11 @@ private[dao] final class TransactionsReader(
       .map(response => {
         txnSpan.addEvent(
           com.daml.metrics.Event("contract", Map((SpanAttribute.Offset.key, response.offset))))
+        if (eventCount.accumulateAndGet(
+            response.activeContracts.size,
+            (current, argument) => current - argument) == 0) {
+          txnSpan.end()
+        }
         response
       })
   }
@@ -335,23 +353,25 @@ private[dao] final class TransactionsReader(
       queryMetric: DatabaseMetrics,
       query: EventsRange[A] => Connection => Vector[EventsTable.Entry[Raw[E]]],
       getNextPageRange: EventsTable.Entry[E] => EventsRange[A],
-      txnSpan: Span
+      eventCount: AtomicInteger
   )(range: EventsRange[A])(
       implicit loggingContext: LoggingContext,
   ): Source[EventsTable.Entry[E], NotUsed] =
     PaginatingAsyncStream.streamFrom(range, getNextPageRange) { range1 =>
       if (EventsRange.isEmpty(range1)) {
-        txnSpan.end()
+        eventCount.decrementAndGet()
         Future.successful(Vector.empty)
       } else {
         val rawEvents: Future[Vector[EventsTable.Entry[Raw[E]]]] =
           dispatcher.executeSql(queryMetric)(query(range1))
         rawEvents.flatMap(
-          es =>
+          es => {
+            eventCount.addAndGet(es.size)
             Timed.future(
               future = Future.traverse(es)(deserializeEntry(verbose)),
               timer = queryMetric.translationTimer,
-          )
+            )
+          }
         )
       }
     }
