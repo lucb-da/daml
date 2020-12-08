@@ -33,6 +33,7 @@ import io.grpc.{ServerServiceDefinition, StatusRuntimeException}
 import scala.compat.java8.FutureConverters._
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.Try
+import com.daml.metrics.DefaultTelemetry
 
 private[apiserver] final class ApiPackageManagementService private (
     packagesIndex: IndexPackagesService,
@@ -156,7 +157,7 @@ private[apiserver] object ApiPackageManagementService {
       ledgerEndService.currentLedgerEnd().map(Some(_))
 
     override def submit(submissionId: SubmissionId, dar: Dar[Archive]): Future[SubmissionResult] =
-      packagesWrite.uploadPackages(submissionId, dar.all, None).toScala
+      packagesWrite.uploadPackages(submissionId, dar.all, None)(DefaultTelemetry.contextFromGrpcThreadLocalContext()).toScala
 
     override def entries(offset: Option[LedgerOffset.Absolute]): Source[PackageEntry, _] =
       packagesIndex.packageEntries(offset)

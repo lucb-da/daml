@@ -18,7 +18,7 @@ import com.daml.lf.archive.DarReader
 import com.daml.lf.engine.Engine
 import com.daml.logging.LoggingContext.newLoggingContext
 import com.daml.logging.{ContextualizedLogger, LoggingContext}
-import com.daml.metrics.JvmMetricSet
+import com.daml.metrics.{JvmMetricSet, NoOpTelemetryContext}
 import com.daml.platform.apiserver.StandaloneApiServer
 import com.daml.platform.indexer.StandaloneIndexerServer
 import com.daml.platform.store.IndexMetadata
@@ -162,7 +162,7 @@ final class Runner[T <: ReadWriteService, Extra](
     for {
       dar <- Future(
         DarReader { case (_, x) => Try(Archive.parseFrom(x)) }.readArchiveFromFile(from.toFile).get)
-      _ <- to.uploadPackages(submissionId, dar.all, None).toScala
+      _ <- to.uploadPackages(submissionId, dar.all, None)(NoOpTelemetryContext).toScala
     } yield ()
   }
 }

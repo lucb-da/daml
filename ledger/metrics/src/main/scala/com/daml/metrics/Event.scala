@@ -7,6 +7,7 @@ import io.opentelemetry.common.Attributes
 
 /**
   * Wraps [[io.opentelemetry.trace.Event]].
+  * Test
   */
 final case class Event(name: String, attributeMap: Map[String, String])
     extends io.opentelemetry.trace.Event {
@@ -17,4 +18,9 @@ final case class Event(name: String, attributeMap: Map[String, String])
     attributeMap.foreach { case (k, v) => attributes.setAttribute(k, v) }
     attributes.build
   }
+
+  /**
+    * a val.
+    */
+  val y = 2
 }

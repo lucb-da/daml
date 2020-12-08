@@ -34,6 +34,7 @@ import scala.compat.java8.FutureConverters._
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.concurrent.{ExecutionContext, Future}
 import scala.util.{Failure, Success}
+import com.daml.metrics.DefaultTelemetry
 
 private[apiserver] final class ApiConfigManagementService private (
     index: IndexConfigManagementService,
@@ -200,7 +201,7 @@ private[apiserver] object ApiConfigManagementService {
     ): Future[SubmissionResult] = {
       val (maximumRecordTime, newConfiguration) = input
       writeConfigService
-        .submitConfiguration(maximumRecordTime, submissionId, newConfiguration)
+        .submitConfiguration(maximumRecordTime, submissionId, newConfiguration)(DefaultTelemetry.contextFromGrpcThreadLocalContext())
         .toScala
     }
 

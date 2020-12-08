@@ -35,7 +35,7 @@ final class StateUpdates(
             Future.sequence(
               Seq(
                 compareOffsets(expectedOffset, actualOffset),
-                compareUpdates(expectedUpdate, actualUpdate),
+                compareUpdates(expectedUpdate.update, actualUpdate.update),
               ))
         }
         .runWith(Sink.fold(0)((n, _) => n + 1))

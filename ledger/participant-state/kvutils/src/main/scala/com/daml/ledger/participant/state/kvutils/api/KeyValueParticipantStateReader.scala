@@ -12,7 +12,7 @@ import com.daml.ledger.participant.state.v1._
 import com.daml.ledger.validator.preexecution.TimeUpdatesProvider
 import com.daml.lf.data.Time
 import com.daml.lf.data.Time.Timestamp
-import com.daml.metrics.{Metrics, Timed}
+import com.daml.metrics.{Metrics, Timed, NoOpTelemetryContext}
 
 /**
   * Adapts a [[LedgerReader]] instance to [[ReadService]].
@@ -37,7 +37,7 @@ class KeyValueParticipantStateReader private[api] (
   override def getLedgerInitialConditions(): Source[LedgerInitialConditions, NotUsed] =
     Source.single(createLedgerInitialConditions())
 
-  override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, Update), NotUsed] = {
+  override def stateUpdates(beginAfter: Option[Offset]): Source[(Offset, UpdateWithContext), NotUsed] = {
     Source
       .single(beginAfter.map(OffsetBuilder.dropLowestIndex))
       .flatMapConcat(reader.events)
@@ -54,7 +54,8 @@ class KeyValueParticipantStateReader private[api] (
                       logEntryToUpdate(logEntryId, logEntry, timeUpdatesProvider())
                     val updatesWithOffsets = Source(updates).zipWithIndex.map {
                       case (update, index) =>
-                        offsetForUpdate(offset, index.toInt, updates.size) -> update
+                        // TODO: duplicate the implementation in oem
+                        offsetForUpdate(offset, index.toInt, updates.size) -> UpdateWithContext(update)(NoOpTelemetryContext)
                     }
                     Right(updatesWithOffsets)
                   }
