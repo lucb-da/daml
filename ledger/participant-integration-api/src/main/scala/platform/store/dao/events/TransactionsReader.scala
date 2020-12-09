@@ -358,10 +358,9 @@ private[dao] final class TransactionsReader(
       implicit loggingContext: LoggingContext,
   ): Source[EventsTable.Entry[E], NotUsed] =
     PaginatingAsyncStream.streamFrom(range, getNextPageRange) { range1 =>
-      if (EventsRange.isEmpty(range1)) {
-        eventCount.decrementAndGet()
+      if (EventsRange.isEmpty(range1))
         Future.successful(Vector.empty)
-      } else {
+      else {
         val rawEvents: Future[Vector[EventsTable.Entry[Raw[E]]]] =
           dispatcher.executeSql(queryMetric)(query(range1))
         rawEvents.flatMap(
