@@ -174,17 +174,17 @@ private[daml] final class SpannedIndexService(delegate: IndexService) extends In
 
   override def deduplicateCommand(
       commandId: CommandId,
-      submitters: List[Ref.Party],
+      submitter: Ref.Party,
       submittedAt: Instant,
       deduplicateUntil: Instant,
   )(implicit loggingContext: LoggingContext): Future[v2.CommandDeduplicationResult] =
-    delegate.deduplicateCommand(commandId, submitters, submittedAt, deduplicateUntil)
+    delegate.deduplicateCommand(commandId, submitter, submittedAt, deduplicateUntil)
 
   override def stopDeduplicatingCommand(
       commandId: CommandId,
-      submitters: List[Ref.Party],
+      submitter: Ref.Party,
   )(implicit loggingContext: LoggingContext): Future[Unit] =
-    delegate.stopDeduplicatingCommand(commandId, submitters)
+    delegate.stopDeduplicatingCommand(commandId, submitter)
 
   override def prune(pruneUpToInclusive: Offset)(
       implicit loggingContext: LoggingContext): Future[Unit] =
